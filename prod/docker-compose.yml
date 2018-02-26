@@ -1,0 +1,89 @@
+version: "3.3"
+
+volumes:
+  fpm:
+    external: true
+  ssl:
+    external: true
+  web:
+    external: true
+  db.prod:
+    external: true
+  code.update:
+    external: true
+
+networks:
+  net.prod:
+    external: true
+
+services:
+  nginx:
+    image: wumvi/nginx.prod:1.13.9
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+       - fpm:/run/php/
+       - web:/www/
+       - ssl:/ssl/
+       - /tmp/web/:/tmp/web/
+    hostname: nginx
+    container_name: nginx
+    restart_policy:
+        condition: always
+
+  fpm:
+    image: wumvi/php.fpm.prod:7.1
+    volumes:
+       - fpm:/run/php/
+       - web:/www/
+       - ssl:/ssl/
+       - /tmp/web/:/tmp/web/
+    hostname: fpm71
+    container_name: fpm71
+    networks:
+      net.prod: {}
+    restart_policy:
+        condition: always
+
+  db:
+    image: wumvi/postgresql
+    ports:
+      - 5432:5432
+    volumes:
+       - db.prod:/data
+       - /tmp/db/:/tmp/db/
+    hostname: db.prod
+    container_name: db.prod
+    networks:
+      net.prod: {}
+    restart_policy:
+        condition: always
+        
+  ssl:
+    image: wumvi/certbot
+    volumes:
+       - ssl:/etc/letsencrypt/
+       - /tmp/ssl/:/tmp/ssl/
+       -/var/run/docker.sock:/var/run/docker.sock
+    hostname: certbot
+    container_name: certbot
+    networks:
+      net.prod: {}
+    restart_policy:
+        condition: always    
+        
+  codeupdate:
+    image: wumvi/code.update
+    ports:
+        - 4001:22
+    volumes:
+       - code.update:/update/
+       - web:/www/
+       -/var/run/docker.sock:/var/run/docker.sock
+    hostname: codeupdate
+    container_name: codeupdate
+    env_file:
+        - ./code.update-ssh.yml
+    restart_policy:
+        condition: always
